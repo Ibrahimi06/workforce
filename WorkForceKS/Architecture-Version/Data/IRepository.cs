@@ -1,9 +1,13 @@
-namespace Data;
+namespace WorkForceKS.Data;
 
+/// <summary>
+/// Generic repository interface for CRUD operations.
+/// </summary>
 public interface IRepository<T>
 {
-    List<T> GetAll();
-    T GetById(int id);
-    void Add(T entity);
-    void Save();
+    List<T>  GetAll();
+    T?       GetById(int id);
+    void     Add(T entity);
+    void     Update(T entity);
+    void     Delete(int id);
 }

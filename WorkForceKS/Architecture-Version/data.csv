@@ -1,2 +1,6 @@
-1,John Doe,Manager
-2,Jane Smith,Developer
+Id,Name,Role,Salary,HoursWorked,Department
+1,Arben,Engineer,1200,160,IT
+2,Blerim,Manager,1500,170,HR
+3,Drita,Accountant,1100,150,Finance
+4,Elira,Designer,1000,155,Marketing
+5,Fisnik,Technician,900,160,Maintenance

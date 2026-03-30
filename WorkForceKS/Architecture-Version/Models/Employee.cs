@@ -1,12 +1,17 @@
-namespace Models;
+namespace WorkForceKS.Models;
 
+/// <summary>
+/// Represents an employee in the WorkForce KS system.
+/// </summary>
 public class Employee
 {
-    private int id;
-    private string name;
-    private string position;
+    public int    Id         { get; set; }
+    public string Name       { get; set; } = string.Empty;
+    public string Position   { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public decimal Salary    { get; set; }
+    public DateTime HiredAt  { get; set; }
 
-    public int Id { get => id; set => id = value; }
-    public string Name { get => name; set => name = value; }
-    public string Position { get => position; set => position = value; }
+    public override string ToString() =>
+        $"[{Id}] {Name} | {Position} | {Department} | €{Salary:N2} | Punësuar: {HiredAt:yyyy-MM-dd}";
 }
