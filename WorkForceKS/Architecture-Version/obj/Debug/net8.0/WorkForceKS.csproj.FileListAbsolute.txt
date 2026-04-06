@@ -1,0 +1,6 @@
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.GeneratedMSBuildEditorConfig.editorconfig
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.AssemblyInfoInputs.cache
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.AssemblyInfo.cs
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.csproj.CoreCompileInputs.cache
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.sourcelink.json
+/Users/macintoks/Documents/WorkForceKS/WorkForceKS/Architecture-Version/obj/Debug/net8.0/WorkForceKS.csproj.AssemblyReference.cache

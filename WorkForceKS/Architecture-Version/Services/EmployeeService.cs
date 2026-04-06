@@ -5,7 +5,8 @@ namespace WorkForceKS.Services;
 
 /// <summary>
 /// Business logic layer for Employee management.
-/// Receives IRepository via constructor injection — no direct DB coupling.
+/// Sprint 2: added Statistics feature and comprehensive error handling.
+/// Flow: UI → Service → Repository
 /// </summary>
 public class EmployeeService
 {
@@ -13,13 +14,13 @@ public class EmployeeService
 
     public EmployeeService(IRepository<Employee> repository)
     {
-        _repo = repository;
+        _repo = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     // ── 1. Listo (me filtrim) ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Returns all employees, optionally filtered by department and/or min salary.
+    /// Returns all employees, optionally filtered by department and/or minimum salary.
     /// </summary>
     public List<Employee> List(string? department = null, decimal? minSalary = null)
     {
@@ -27,13 +28,18 @@ public class EmployeeService
 
         if (!string.IsNullOrWhiteSpace(department))
             employees = employees
-                .Where(e => e.Department.Contains(department, StringComparison.OrdinalIgnoreCase))
+                .Where(e => e.Department.Contains(department.Trim(), StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
         if (minSalary.HasValue)
+        {
+            if (minSalary.Value < 0)
+                throw new ArgumentException("Paga minimale nuk mund të jetë negative.");
+
             employees = employees
                 .Where(e => e.Salary >= minSalary.Value)
                 .ToList();
+        }
 
         return employees;
     }
@@ -54,7 +60,7 @@ public class EmployeeService
     // ── 3. Shto (me validim) ──────────────────────────────────────────────────
 
     /// <summary>
-    /// Validates and adds a new employee. Throws on invalid input.
+    /// Validates and adds a new employee. Throws ArgumentException on invalid input.
     /// </summary>
     public Employee Add(string name, string position, string department,
                         decimal salary, DateTime hiredAt)
@@ -74,7 +80,7 @@ public class EmployeeService
         return employee;
     }
 
-    // ── Update ────────────────────────────────────────────────────────────────
+    // ── 4. Ndrysho ────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Updates an existing employee. Throws if not found or invalid data.
@@ -97,7 +103,7 @@ public class EmployeeService
         return existing;
     }
 
-    // ── Delete ────────────────────────────────────────────────────────────────
+    // ── 5. Fshi ───────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Deletes an employee by ID. Throws if not found.
@@ -107,7 +113,39 @@ public class EmployeeService
         var existing = _repo.GetById(id)
             ?? throw new InvalidOperationException($"Punonjësi me ID {id} nuk ekziston.");
 
-        _repo.Delete(id);
+        _repo.Delete(existing.Id);
+    }
+
+    // ── 6. SPRINT 2 — Statistika ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Calculates statistics (total, average, max, min salary, count, top earner)
+    /// for all employees or filtered by department.
+    /// Returns null if no employees match the filter.
+    /// </summary>
+    public EmployeeStatistics? GetStatistics(string? department = null)
+    {
+        var employees = List(department);
+
+        if (employees.Count == 0)
+            return null;
+
+        var topEarner = employees
+            .OrderByDescending(e => e.Salary)
+            .First();
+
+        return new EmployeeStatistics
+        {
+            Count         = employees.Count,
+            TotalSalary   = employees.Sum(e => e.Salary),
+            AverageSalary = employees.Average(e => e.Salary),
+            MaxSalary     = employees.Max(e => e.Salary),
+            MinSalary     = employees.Min(e => e.Salary),
+            TopEarner     = topEarner.Name,
+            FilterApplied = string.IsNullOrWhiteSpace(department)
+                                ? "Të gjithë departamentet"
+                                : department.Trim(),
+        };
     }
 
     // ── Private validation ────────────────────────────────────────────────────

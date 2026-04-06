@@ -4,8 +4,9 @@ using WorkForceKS.Models;
 namespace WorkForceKS.UI;
 
 /// <summary>
-/// Console-based user interface.
-/// Flow: UI → Service → Repository → PostgreSQL
+/// Console-based user interface for WorkForce KS.
+/// Sprint 2: added Statistics feature (option 7) and robust error handling throughout.
+/// Flow: UI → Service → Repository
 /// </summary>
 public class ConsoleUI
 {
@@ -30,12 +31,13 @@ public class ConsoleUI
             {
                 switch (choice)
                 {
-                    case "1": ShowAll();        break;
-                    case "2": ShowFiltered();   break;
-                    case "3": FindById();       break;
-                    case "4": AddEmployee();    break;
-                    case "5": UpdateEmployee(); break;
-                    case "6": DeleteEmployee(); break;
+                    case "1": ShowAll();          break;
+                    case "2": ShowFiltered();     break;
+                    case "3": FindById();         break;
+                    case "4": AddEmployee();      break;
+                    case "5": UpdateEmployee();   break;
+                    case "6": DeleteEmployee();   break;
+                    case "7": ShowStatistics();   break;
                     case "0":
                         Console.WriteLine("\n  Mirupafshim! 👋\n");
                         return;
@@ -44,9 +46,17 @@ public class ConsoleUI
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                Error($"Input i pavlefshëm: {ex.Message}");
+            }
+            catch (InvalidOperationException ex)
             {
                 Error(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                Error($"Gabim i papritur: {ex.Message}");
             }
 
             Console.WriteLine("\nShtypni Enter për të vazhduar...");
@@ -59,17 +69,18 @@ public class ConsoleUI
     private static void PrintMenu()
     {
         Console.WriteLine();
-        Console.WriteLine("  ┌─────────────────────────────────┐");
-        Console.WriteLine("  │         WORKFORCE KS            │");
-        Console.WriteLine("  ├─────────────────────────────────┤");
-        Console.WriteLine("  │  1. Listo të gjithë punonjësit  │");
-        Console.WriteLine("  │  2. Listo me filtrim            │");
-        Console.WriteLine("  │  3. Kërko sipas ID              │");
-        Console.WriteLine("  │  4. Shto punonjës               │");
-        Console.WriteLine("  │  5. Ndrysho punonjës            │");
-        Console.WriteLine("  │  6. Fshi punonjës               │");
-        Console.WriteLine("  │  0. Dil                         │");
-        Console.WriteLine("  └─────────────────────────────────┘");
+        Console.WriteLine("  ┌──────────────────────────────────────┐");
+        Console.WriteLine("  │          WORKFORCE KS  v2.0          │");
+        Console.WriteLine("  ├──────────────────────────────────────┤");
+        Console.WriteLine("  │  1. Listo të gjithë punonjësit       │");
+        Console.WriteLine("  │  2. Listo me filtrim                 │");
+        Console.WriteLine("  │  3. Kërko sipas ID                   │");
+        Console.WriteLine("  │  4. Shto punonjës                    │");
+        Console.WriteLine("  │  5. Ndrysho punonjës                 │");
+        Console.WriteLine("  │  6. Fshi punonjës                    │");
+        Console.WriteLine("  │  7. Statistika e pagave  ★ E RE      │");
+        Console.WriteLine("  │  0. Dil                              │");
+        Console.WriteLine("  └──────────────────────────────────────┘");
     }
 
     // ── 1 — Show all ─────────────────────────────────────────────────────────
@@ -84,12 +95,20 @@ public class ConsoleUI
 
     private void ShowFiltered()
     {
-        var dept     = Prompt("Departamenti (lër bosh për të gjithë)");
-        var salaryTx = Prompt("Paga minimale (lër bosh për asnjë limit)");
+        var dept      = Prompt("Departamenti (lër bosh për të gjithë)").Trim();
+        var salaryTxt = Prompt("Paga minimale (lër bosh për pa limit)").Trim();
 
         decimal? minSalary = null;
-        if (!string.IsNullOrWhiteSpace(salaryTx))
-            minSalary = decimal.Parse(salaryTx);
+
+        if (!string.IsNullOrWhiteSpace(salaryTxt))
+        {
+            if (!decimal.TryParse(salaryTxt, out var parsed) || parsed < 0)
+            {
+                Warn("Ju lutem shkruani numër valid për pagën minimale.");
+                return;
+            }
+            minSalary = parsed;
+        }
 
         var list = _service.List(
             string.IsNullOrWhiteSpace(dept) ? null : dept,
@@ -102,8 +121,15 @@ public class ConsoleUI
 
     private void FindById()
     {
-        int id = ReadInt("ID e punonjësit");
-        var e  = _service.FindById(id);
+        var idInput = Prompt("ID e punonjësit").Trim();
+
+        if (!int.TryParse(idInput, out var id) || id <= 0)
+        {
+            Warn("Ju lutem shkruani numër të plotë pozitiv për ID.");
+            return;
+        }
+
+        var e = _service.FindById(id);
 
         if (e is null)
             Warn($"Punonjësi me ID {id} nuk u gjet.");
@@ -119,32 +145,75 @@ public class ConsoleUI
     private void AddEmployee()
     {
         Console.WriteLine("\n  ── Shto Punonjës ──");
-        string name    = Prompt("Emri dhe mbiemri");
-        string pos     = Prompt("Pozita");
-        string dept    = Prompt("Departamenti");
-        decimal salary = ReadDecimal("Paga (€)");
-        DateTime hired = ReadDate("Data e punësimit (YYYY-MM-DD)");
+
+        string name   = Prompt("Emri dhe mbiemri").Trim();
+        string pos    = Prompt("Pozita").Trim();
+        string dept   = Prompt("Departamenti").Trim();
+
+        var salaryTxt = Prompt("Paga (€)").Trim();
+        if (!decimal.TryParse(salaryTxt, out var salary) || salary <= 0)
+        {
+            Warn("Ju lutem shkruani shumë valide (> 0).");
+            return;
+        }
+
+        var dateTxt = Prompt("Data e punësimit (YYYY-MM-DD)").Trim();
+        if (!DateTime.TryParse(dateTxt, out var hired))
+        {
+            Warn("Format i pavlefshëm për datë. Shembull: 2023-06-15");
+            return;
+        }
 
         var e = _service.Add(name, pos, dept, salary, hired);
-        Success($"Punonjësi u shtua me ID: {e.Id}");
+        Success($"Punonjësi u shtua me sukses! ID: {e.Id}");
     }
 
     // ── 5 — Update ───────────────────────────────────────────────────────────
 
     private void UpdateEmployee()
     {
-        int id = ReadInt("ID e punonjësit për ndryshim");
-        var existing = _service.FindById(id)
-            ?? throw new InvalidOperationException($"ID {id} nuk ekziston.");
+        var idTxt = Prompt("ID e punonjësit për ndryshim").Trim();
+        if (!int.TryParse(idTxt, out var id) || id <= 0)
+        {
+            Warn("Ju lutem shkruani numër të plotë pozitiv për ID.");
+            return;
+        }
+
+        var existing = _service.FindById(id);
+        if (existing is null)
+        {
+            Warn($"Punonjësi me ID {id} nuk ekziston.");
+            return;
+        }
 
         Console.WriteLine($"\n  Punonjësi aktual: {existing}");
         Console.WriteLine("  (Shtypni Enter për të mbajtur vlerën ekzistuese)\n");
 
-        string name    = PromptWithDefault("Emri",         existing.Name);
-        string pos     = PromptWithDefault("Pozita",       existing.Position);
-        string dept    = PromptWithDefault("Departamenti", existing.Department);
-        decimal salary = ReadDecimalWithDefault("Paga (€)", existing.Salary);
-        DateTime hired = ReadDateWithDefault("Data e punësimit", existing.HiredAt);
+        string name = PromptWithDefault("Emri",         existing.Name);
+        string pos  = PromptWithDefault("Pozita",       existing.Position);
+        string dept = PromptWithDefault("Departamenti", existing.Department);
+
+        decimal salary = existing.Salary;
+        var salaryTxt  = Prompt($"Paga (€) [{existing.Salary}]").Trim();
+        if (!string.IsNullOrEmpty(salaryTxt))
+        {
+            if (!decimal.TryParse(salaryTxt, out salary) || salary <= 0)
+            {
+                Warn("Shumë e pavlefshme — vlera ekzistuese u ruajt.");
+                salary = existing.Salary;
+            }
+        }
+
+        DateTime hired = existing.HiredAt;
+        var dateTxt    = Prompt($"Data e punësimit [{existing.HiredAt:yyyy-MM-dd}]").Trim();
+        if (!string.IsNullOrEmpty(dateTxt))
+        {
+            if (!DateTime.TryParse(dateTxt, out hired))
+            {
+                Warn("Format i pavlefshëm — data ekzistuese u ruajt.");
+                hired = existing.HiredAt;
+            }
+        }
 
         _service.Update(id, name, pos, dept, salary, hired);
         Success($"Punonjësi me ID {id} u përditësua.");
@@ -154,9 +223,19 @@ public class ConsoleUI
 
     private void DeleteEmployee()
     {
-        int id = ReadInt("ID e punonjësit për fshirje");
-        var e  = _service.FindById(id)
-            ?? throw new InvalidOperationException($"ID {id} nuk ekziston.");
+        var idTxt = Prompt("ID e punonjësit për fshirje").Trim();
+        if (!int.TryParse(idTxt, out var id) || id <= 0)
+        {
+            Warn("Ju lutem shkruani numër të plotë pozitiv për ID.");
+            return;
+        }
+
+        var e = _service.FindById(id);
+        if (e is null)
+        {
+            Warn($"Punonjësi me ID {id} nuk ekziston.");
+            return;
+        }
 
         Console.Write($"\n  ⚠  Jeni i sigurt se doni të fshini '{e.Name}'? (po/jo): ");
         var confirm = Console.ReadLine()?.Trim().ToLower();
@@ -170,6 +249,37 @@ public class ConsoleUI
         Success($"Punonjësi me ID {id} u fshi.");
     }
 
+    // ── 7 — Statistics (SPRINT 2 — FEATURE E RE) ─────────────────────────────
+
+    private void ShowStatistics()
+    {
+        Console.WriteLine("\n  ── Statistika e Pagave ──");
+
+        var dept = Prompt("Filtro sipas departamentit (lër bosh për të gjithë)").Trim();
+
+        var stats = _service.GetStatistics(string.IsNullOrWhiteSpace(dept) ? null : dept);
+
+        if (stats is null)
+        {
+            Warn("Nuk u gjet asnjë punonjës për filtrin e zgjedhur.");
+            return;
+        }
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("  ╔══════════════════════════════════════════════╗");
+        Console.WriteLine($"  ║  Statistika: {stats.FilterApplied,-32}║");
+        Console.WriteLine("  ╠══════════════════════════════════════════════╣");
+        Console.WriteLine($"  ║  Numri i punonjësve : {stats.Count,-24}║");
+        Console.WriteLine($"  ║  Totali i pagave    : €{stats.TotalSalary,-23:N2}║");
+        Console.WriteLine($"  ║  Paga mesatare      : €{stats.AverageSalary,-23:N2}║");
+        Console.WriteLine($"  ║  Paga maksimale     : €{stats.MaxSalary,-23:N2}║");
+        Console.WriteLine($"  ║  Paga minimale      : €{stats.MinSalary,-23:N2}║");
+        Console.WriteLine($"  ║  Paguesi më i lartë : {stats.TopEarner,-24}║");
+        Console.WriteLine("  ╚══════════════════════════════════════════════╝");
+        Console.ResetColor();
+    }
+
     // ── Display helpers ───────────────────────────────────────────────────────
 
     private static void PrintTable(List<Employee> list)
@@ -178,9 +288,9 @@ public class ConsoleUI
 
         Console.WriteLine();
         Console.WriteLine($"  {"ID",-5} {"Emri",-22} {"Pozita",-20} {"Departamenti",-15} {"Paga",10}  {"Punësuar",-12}");
-        Console.WriteLine("  " + new string('─', 88));
+        Console.WriteLine("  " + new string('─', 90));
         foreach (var e in list) PrintRow(e);
-        Console.WriteLine("  " + new string('─', 88));
+        Console.WriteLine("  " + new string('─', 90));
         Console.WriteLine($"  Gjithsej: {list.Count} punonjës.");
     }
 
@@ -205,62 +315,16 @@ public class ConsoleUI
         return string.IsNullOrEmpty(input) ? current : input;
     }
 
-    private static int ReadInt(string label)
-    {
-        while (true)
-        {
-            var raw = Prompt(label);
-            if (int.TryParse(raw, out var val) && val > 0) return val;
-            Warn("Ju lutem shkruani numër të plotë pozitiv.");
-        }
-    }
-
-    private static decimal ReadDecimal(string label)
-    {
-        while (true)
-        {
-            var raw = Prompt(label);
-            if (decimal.TryParse(raw, out var val) && val > 0) return val;
-            Warn("Ju lutem shkruani shumë valide (> 0).");
-        }
-    }
-
-    private static decimal ReadDecimalWithDefault(string label, decimal current)
-    {
-        Console.Write($"  {label} [{current}]: ");
-        var raw = Console.ReadLine()?.Trim();
-        if (string.IsNullOrEmpty(raw)) return current;
-        return decimal.TryParse(raw, out var val) && val > 0 ? val : current;
-    }
-
-    private static DateTime ReadDate(string label)
-    {
-        while (true)
-        {
-            var raw = Prompt(label);
-            if (DateTime.TryParse(raw, out var dt)) return dt;
-            Warn("Format i pavlefshëm. Shembull: 2023-06-15");
-        }
-    }
-
-    private static DateTime ReadDateWithDefault(string label, DateTime current)
-    {
-        Console.Write($"  {label} [{current:yyyy-MM-dd}]: ");
-        var raw = Console.ReadLine()?.Trim();
-        if (string.IsNullOrEmpty(raw)) return current;
-        return DateTime.TryParse(raw, out var dt) ? dt : current;
-    }
-
     // ── Output styles ─────────────────────────────────────────────────────────
 
     private static void Banner()
     {
         Console.Clear();
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("\n  ╔══════════════════════════════════════╗");
-        Console.WriteLine("  ║   WorkForce KS — Sistem Menaxhimi   ║");
-        Console.WriteLine("  ║        Databaza: PostgreSQL          ║");
-        Console.WriteLine("  ╚══════════════════════════════════════╝\n");
+        Console.WriteLine("\n  ╔══════════════════════════════════════════╗");
+        Console.WriteLine("  ║   WorkForce KS — Sistem Menaxhimi v2.0  ║");
+        Console.WriteLine("  ║          Sprint 2 — Xhafer Ibrahimi      ║");
+        Console.WriteLine("  ╚══════════════════════════════════════════╝\n");
         Console.ResetColor();
     }
 
